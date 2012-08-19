@@ -16,5 +16,5 @@ Gem::Specification.new do |gem|
   gem.files = Dir["**/*"].select { |d| d =~ %r{^(README|bin/|data/|ext/|lib/|spec/|test/)} }
 
   gem.add_dependency "rest-client", "~> 1.6.7"
-  gem.add_dependency "thor",        "~> 0.15.2"
+  gem.add_dependency "thor",        "~> 0.16.0"
 end
