@@ -19,6 +19,7 @@ class Anvil::Builder
   def build(options={})
     uri  = URI.parse("#{anvil_host}/build")
     http = Net::HTTP.new(uri.host, uri.port)
+    http.read_timeout = 1500
 
     if uri.scheme == "https"
       http.use_ssl = true
