@@ -36,7 +36,8 @@ class Anvil::Builder
       "buildpack" => options[:buildpack],
       "cache"     => options[:cache],
       "env"       => json_encode(options[:env] || {}),
-      "source"    => source
+      "source"    => source,
+      "keepalive" => "1",
     })
 
     slug_url = nil
@@ -46,7 +47,8 @@ class Anvil::Builder
 
       begin
         res.read_body do |chunk|
-          yield chunk
+          no_keepalives = chunk.gsub("\000\000\000", "")
+          yield(no_keepalives) if no_keepalives.present?
         end
       rescue EOFError
         puts
