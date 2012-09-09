@@ -15,10 +15,11 @@ class Anvil::Manifest
   attr_reader :dir
   attr_reader :manifest
 
-  def initialize(dir=nil, cache_url=nil)
+  def initialize(dir=nil, options={})
     @dir = dir
-    @manifest = @dir ? directory_manifest(@dir) : {}
-    @cache_url = cache_url
+    @ignore = options[:ignore] || []
+    @manifest = @dir ? directory_manifest(@dir, :ignore => @ignore) : {}
+    @cache_url = options[:cache]
   end
 
   def build(options={})
@@ -34,10 +35,14 @@ class Anvil::Manifest
 
     env = options[:env] || {}
 
+    req.initialize_http_header "User-Agent" => Anvil.agent
+    req["User-Agent"] = Anvil.agent
+
     req.set_form_data({
       "buildpack" => options[:buildpack],
       "cache"     => @cache_url,
       "env"       => json_encode(options[:env] || {}),
+      "keepalive" => "1",
       "manifest"  => self.to_json
     })
 
@@ -49,7 +54,7 @@ class Anvil::Manifest
 
       begin
         res.read_body do |chunk|
-          yield chunk
+          yield chunk.gsub("\000\000\000", "")
         end
       rescue EOFError
         puts
@@ -87,7 +92,7 @@ class Anvil::Manifest
     end
   end
 
-  def upload(hashes=missing, &blk)
+  def upload(missing, &blk)
     upload_hashes missing, &blk
     missing.length
   end
@@ -103,24 +108,32 @@ class Anvil::Manifest
 private
 
   def anvil
-    @anvil ||= RestClient::Resource.new(anvil_host)
+    @anvil ||= RestClient::Resource.new(anvil_host, :headers => anvil_headers)
+  end
+
+  def anvil_headers
+    { "User-Agent" => Anvil.agent }
   end
 
   def anvil_host
     ENV["ANVIL_HOST"] || "https://api.anvilworks.org"
   end
 
-  def directory_manifest(dir)
+  def directory_manifest(dir, options={})
     root = Pathname.new(dir)
+    ignore = options[:ignore] || []
 
     Dir.glob(File.join(dir, "**", "*"), File::FNM_DOTMATCH).inject({}) do |hash, file|
+      relative = Pathname.new(file).relative_path_from(root).to_s
+      next(hash) if ignore.include?(relative)
       next(hash) if %w( . .. ).include?(File.basename(file))
       next(hash) if File.directory?(file)
       next(hash) if File.pipe?(file)
+      next(hash) if file =~ /\.anvil/
       next(hash) if file =~ /\.git/
       next(hash) if file =~ /\.swp$/
       next(hash) unless file =~ /^[A-Za-z0-9\-\_\.\/]*$/
-      hash[Pathname.new(file).relative_path_from(root).to_s] = file_manifest(file)
+      hash[relative] = file_manifest(file)
       hash
     end
   end
