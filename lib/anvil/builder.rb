@@ -39,6 +39,7 @@ class Anvil::Builder
       "buildpack" => options[:buildpack],
       "cache"     => options[:cache],
       "env"       => json_encode(options[:env] || {}),
+      "release"   => options[:release],
       "source"    => source,
       "keepalive" => "1",
     })
